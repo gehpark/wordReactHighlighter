@@ -1,8 +1,9 @@
 var React = require('react');
 var ReactDOM = require('react-dom');
 var Stopwatch = require('react-stopwatch');
-
-// TODO load these better
+ 
+// i guess i can load these on call of render. but lets say
+// i preload all three so when I page left/right the effect is immediate
 var data1 = require('../data/doc1.json');
 var data2 = require('../data/doc2.json');
 var data3 = require('../data/doc3.json');
@@ -15,11 +16,12 @@ var tetra_pink = "#FF0076"
 var black = "#000000"
 
 
-class Control extends React.Component {
+class Timer extends React.Component {
 
 	constructor(props) {
 		super(props);
 
+		// get concatenated version of the text
 		var i, j;
 		var string = ""
 		for (i=0; i<props.data.utterances.length; i++) {
@@ -29,7 +31,6 @@ class Control extends React.Component {
 			}
 			string += "\n"
 		}
-		console.log(string)
 
 		this.state = {isPlaying: false,
 					timer: null,
@@ -119,6 +120,7 @@ class Control extends React.Component {
 		this.setState(state=>({controlLabel: pause_text}))
 	    if (!this.state.timer) {
 	      this.state.timer = setInterval(this.incrementTime.bind(this), 10);
+	      // Note: this internal clock is def not accurate.
 	    }
 	}	
 
@@ -169,7 +171,7 @@ class Control extends React.Component {
 		this.setState(state=>({last_id: id}))
 	}
 
-    // TODO optimize so that we dont have to re-set state for hour and minutes so often
+    // TODO optimize so that we dont have to re-set state for hour and minutes so often. minimal improvement.
 	incrementTime() {
 	    this.state.totalMilliseconds += 10;
 
@@ -179,22 +181,25 @@ class Control extends React.Component {
 			minutes: this.formatTimeWithZero(parseInt(this.state.totalMilliseconds / 60000) % 60),
 			hours: this.formatTimeWithZero(parseInt(this.state.totalMilliseconds / 3600000))}))
 
-	    // update utterCounter and wordCounter
+	    // we've reached the end. stop the timer.
 	    if (this.state.utterCounter == this.state.utterances.length) {
 	    	this.pause()
 	    	return
 	    }
-
-	    var calculatedSeconds = this.state.totalMilliseconds / 1000;
 	   
+	    // is it just me or is the state not updated immediately
+	    // keep temp variables to see immediate changes
 	    var wordCounterTemp = this.state.wordCounter + 1
 	    var symbolCounterTemp = this.state.symbolCounter;
+		var utterCounterTemp = this.state.utterCounter
+
+		// pass symbols. we only want to display and not highlight these
 	    while (wordCounterTemp < this.state.utterances[this.state.utterCounter].words.length && this.state.utterances[this.state.utterCounter].words[wordCounterTemp].is_symbol == true) {
 	    	wordCounterTemp++
 	    	symbolCounterTemp++
 	    }
 
-		var utterCounterTemp = this.state.utterCounter
+	    // if we are at the end of an utterance, update counts appropriately
 	    if (wordCounterTemp == this.state.utterances[this.state.utterCounter].words.length) {
 	    	utterCounterTemp++
 			if (utterCounterTemp == this.state.utterances.length) {
@@ -209,6 +214,8 @@ class Control extends React.Component {
 	    	symbolCounterTemp = 0;
 	    }
 
+	    // if we have reached the next word, update counts appropriately
+	    var calculatedSeconds = this.state.totalMilliseconds / 1000;
 	    if (calculatedSeconds >= this.state.utterances[utterCounterTemp].words[wordCounterTemp].start_time) {
 	    	this.setState(state=>({wordCounter: wordCounterTemp}))
 	    }
@@ -218,7 +225,6 @@ class Control extends React.Component {
 		    this.updateSpeaker(this.state.utterances[utterCounterTemp].speaker_id)	    	
 	    }
 
-	    // check for change in word
 	    if (true != this.state.utterances[utterCounterTemp].words[wordCounterTemp].is_symbol) {
 		    this.updateWord(utterCounterTemp, wordCounterTemp - symbolCounterTemp)	    	
 	    }
@@ -231,10 +237,10 @@ class Control extends React.Component {
 }
 
 
-// TODO break these out into separate components
+// TODO break these out into separate components for cleanliness?
 class TextViewer extends React.Component {
 }
-class Timer extends React.Component {
+class HeaderController extends React.Component {
 }
  
 class App extends React.Component {
@@ -247,7 +253,7 @@ class App extends React.Component {
 	render() {
 		return (
 			<div>
-				<Control data={dataArray[this.state.ind]}/>
+				<Timer data={dataArray[this.state.ind]}/>
 				<div style={pagerContainerStyle}>
 					<button style={pagerButtonStyleLeft} onClick = {()=>this.navLeft()}> PREVIOUS </button>
 					<button style={pagerButtonStyleRight} onClick = {()=>this.navRight()}> NEXT </button>
@@ -256,16 +262,15 @@ class App extends React.Component {
 		)
 	}
 
-	// in theory this function will nav to the next data file available. DOES NOT WORK
+	// in theory this function will nav to the next data file available. DOES NOT WORK and idk how to fix it
 	navRight() {
 		if (this.state.ind + 1 < dataArray.length) {
-			console.log("nav right attempted")
 			this.setState({ind: this.state.ind++})
 			render()
 		}
 	}
 
-// in theory this function will nav to the previous data file available. DOES NOT WORK
+// in theory this function will nav to the previous data file available. DOES NOT WORK and idk how to fix it
 	navLeft() {
 		if (this.state.ind - 1 >= 0) {
 			ReactDOM.render(<App ind={this.state.ind--} />, document.getElementById('app'));
@@ -276,7 +281,7 @@ class App extends React.Component {
 
 // ===== CSS styling start ===== //
 
-// TODO add drop shadow
+// TODO find a way less awful way to do css in react
 const controlHeaderStyle = {
   padding: '10px',
   height: '40px',
